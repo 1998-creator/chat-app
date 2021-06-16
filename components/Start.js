@@ -14,13 +14,14 @@ export default class App extends React.Component {
  alertMyText (input = []) {
     Alert.alert(input.text);
   }
+  
 
   render() {
     return (
         <ImageBackground source={image} style={styles.image}>
         <View style={styles.container}>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>Welcome to the Chat App!</Text>
+            <Text style={[styles.title, styles.bigBlack]}>Welcome to the Chat App!</Text>
           </View>
           <View style={styles.box1}>
             <View style={styles.nameBox}>
@@ -206,6 +207,10 @@ const styles = StyleSheet.create({
       fontWeight: "600",
       color: "#FFFFFF",
     },
+    bigBlack: {
+        color: 'black',
+        fontSize: 30,
+      },
   });
 
 
