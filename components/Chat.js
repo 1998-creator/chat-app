@@ -206,16 +206,16 @@ export default class Chat extends React.Component {
 
 
   renderInputToolbar(props) {
-  if (this.state.isConnected == false) {
-  } else {
-    return(
-      <InputToolbar
-      {...props}
-      />
-    );
+    if (this.state.isConnected == false) {
+    } else {
+      return (
+        <InputToolbar
+          {...props}
+        />
+      );
+    }
   }
-  }
-  
+
   render() {
     let name = this.props.route.params.name;
     let color = this.props.route.params.color;
