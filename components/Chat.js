@@ -5,6 +5,12 @@ import { GiftedChat, Bubble, InputToolbar } from "react-native-gifted-chat";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 
+//import custom CustomActions
+import CustomActions from "./CustomActions";
+//import MapView
+import MapView from "react-native-maps";
+
+
 
 const firebase = require("firebase");
 require("firebase/firestore");
@@ -17,7 +23,7 @@ export default class Chat extends React.Component {
       messages: [],
       user: {
         _id: '',
-        name: '',
+        name: '',      
         avatar: ''
       },
       uid: 0,
@@ -143,36 +149,70 @@ export default class Chat extends React.Component {
   }
 
 
-  onCollectionUpdate = (querySnapshot) => {
-    const messages = [];
-    // go through each document
-    querySnapshot.forEach((doc) => {
-      // get the QueryDocumentSnapshot's data
-
-      let data = doc.data();
-
-      messages.push({
-        _id: data._id,
-        text: data.text,
-        createdAt: data.createdAt.toDate(),
-        user: data.user,
+    /**
+   * onCollectionUpdte takes snapshot on collection update
+   * @function onCollectionUpdate
+   * @param {string} _id
+   * @param {string} text
+   * @param {number} created.At
+   * @param {object} user
+   * @param {string} user._id
+   * @param {string} image
+   * @param {object} location
+   * @param {number} location.longitude
+   * @param {number} location.latitude
+   */
+     onCollectionUpdate = (querySnapshot) => {
+      const messages = [];
+      // go through each document
+      querySnapshot.forEach((doc) => {
+        // get the QueryDocumentSnapshot's data
+        const data = doc.data();
+        messages.push({
+          _id: data._id,
+          text: data.text || "",
+          createdAt: data.createdAt.toDate(),
+          user: data.user,
+          image: data.image || null,
+          location: data.location || null,
+        });
       });
-    });
+  
+      this.setState({
+        messages,
+      });
+    };
 
-    this.setState({
-      messages,
-    });
-  };
-
-  addMessage() {
+  /**
+   * adds the message object to firestore, fired by onSend function
+   * @function addMessage
+   * @param {string} _id
+   * @param {string} text
+   * @param {number} created.At
+   * @param {object} user
+   * @param {string} user._id
+   * @param {string} image
+   * @param {object} location
+   * @param {number} location.longitude
+   * @param {number} location.latitude
+   */
+   addMessage = () => {
     const message = this.state.messages[0];
     this.referenceChatMessages.add({
       _id: message._id,
-      text: message.text,
+      text: message.text || "",
       createdAt: message.createdAt,
       user: message.user,
+      image: message.image || null,
+      location: message.location || null,
     });
-  }
+  };
+  //define title in navigation bar
+  static navigationOptions = ({ navigation }) => {
+    return {
+      title: `${navigation.state.params.userName}'s Chat`,
+    };
+  };
 
 
   onSend(messages = []) {
@@ -216,6 +256,31 @@ export default class Chat extends React.Component {
     }
   }
 
+   /**
+   * displays the communication features
+   * @function renderCustomActions
+   */
+    renderCustomActions = (props) => <CustomActions {...props} />;
+
+    //custom map view
+    renderCustomView(props) {
+      const { currentMessage } = props;
+      if (currentMessage.location) {
+        return (
+          <MapView
+            style={{ width: 150, height: 100, borderRadius: 13, margin: 3 }}
+            region={{
+              latitude: currentMessage.location.latitude,
+              longitude: currentMessage.location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }}
+          />
+        );
+      }
+      return null;
+    }
+
   render() {
     let name = this.props.route.params.name;
     let color = this.props.route.params.color;
@@ -232,6 +297,8 @@ export default class Chat extends React.Component {
           renderBubble={this.renderBubble.bind(this)}
           renderInputToolbar={this.renderInputToolbar.bind(this)}
           messages={this.state.messages}
+          renderActions={this.renderCustomActions}
+          renderCustomView={this.renderCustomView}
           onSend={(messages) => this.onSend(messages)}
           user={this.state.user}
 
