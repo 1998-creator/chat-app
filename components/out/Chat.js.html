@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: Chat.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: Chat.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>
+import React, { Component } from "react";
+import { View, Platform, KeyboardAvoidingView } from "react-native";
+import { GiftedChat, Bubble, InputToolbar } from "react-native-gifted-chat";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+
+//import custom CustomActions
+import CustomActions from "./CustomActions";
+//import MapView
+import MapView from "react-native-maps";
+
+
+
+const firebase = require("firebase");
+require("firebase/firestore");
+
+export default class Chat extends React.Component {
+  constructor() {
+    super();
+
+    this.state = {
+      messages: [],
+      user: {
+        _id: '',
+        name: '',      
+        avatar: ''
+      },
+      uid: 0,
+      isConnected: false,
+    };
+
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: "AIzaSyAXqcquerdAp1S08x0dWpGJ2KdiPU7jDiQ",
+        authDomain: "chat-app-28f0e.firebaseapp.com",
+        projectId: "chat-app-28f0e",
+        storageBucket: "chat-app-28f0e.appspot.com",
+        messagingSenderId: "488613227744",
+        appId: "1:488613227744:web:226c1fd7729d87d6983485",
+        measurementId: "G-NRMWD45QMX"
+      });
+    }
+
+    this.referenceChatMessages = firebase.firestore().collection("messages");
+
+  }
+
+  async getMessages() {
+    let messages = "";
+    try {
+      messages = (await AsyncStorage.getItem("messages")) || [];
+      this.setState({
+        messages: JSON.parse(messages),
+      });
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
+
+  async saveMessages() {
+    try {
+      await AsyncStorage.setItem(
+        "messages",
+        JSON.stringify(this.state.messages)
+      );
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
+
+  async deleteMessages() {
+    try {
+      await AsyncStorage.removeItem("messages");
+      this.setState({
+        messages: [],
+      });
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
+
+  // componentDidMount() {
+  //   NetInfo.fetch().then((connection) => {
+  //     if (connection.isConnected) {
+  //       console.log("online");
+  //     } else {
+  //       console.log("offline");
+  //     }
+  //   });
+
+  //   this.referenceChatMessages = firebase
+  //         .firestore()
+  //         .collection('messages');
+
+  //   this.getMessages();
+
+  //   this.authUnsubscribe = firebase.auth().onAuthStateChanged((user) => {
+  //     if (!user) {
+  //       firebase.auth().signInAnonymously();
+  //     }
+
+  //     this.setState({
+  //       _id: user.uid,
+  //       messages: [],
+  //     });
+
+  //     this.unsubscribe = this.referenceChatMessages
+  //       .orderBy("createdAt", "desc")
+  //       .onSnapshot(this.onCollectionUpdate);
+  //   });
+  // }
+
+  componentDidMount() {
+    NetInfo.fetch().then(connection => {
+      if (connection.isConnected) {
+        console.log('online');
+        this.authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
+          if (!user) {
+            await firebase.auth().signInAnonymously();
+          }
+          this.setState({
+            isConnected: true,
+            user: {
+              _id: user.uid,
+              name: this.props.route.params.name,
+              avatar: 'https://placeimg.com/140/140/any'
+            },
+            messages: [],
+          });
+          this.referenceChatMessages = firebase.firestore().collection('messages');
+          this.unsubscribeChatUser = this.referenceChatMessages.orderBy('createdAt', 'desc').onSnapshot(this.onCollectionUpdate);
+        });
+      } else {
+        console.log('offline');
+        this.setState({
+          isConnected: false
+        });
+        this.getMessages();
+      }
+    });
+  }
+
+  componentWillUnmount() {
+    this.unsubscribe();
+
+    this.authUnsubscribe();
+  }
+
+
+    /**
+   * onCollectionUpdte takes snapshot on collection update
+   * @function onCollectionUpdate
+   * @param {string} _id
+   * @param {string} text
+   * @param {number} created.At
+   * @param {object} user
+   * @param {string} user._id
+   * @param {string} image
+   * @param {object} location
+   * @param {number} location.longitude
+   * @param {number} location.latitude
+   */
+     onCollectionUpdate = (querySnapshot) => {
+      const messages = [];
+      // go through each document
+      querySnapshot.forEach((doc) => {
+        // get the QueryDocumentSnapshot's data
+        const data = doc.data();
+        messages.push({
+          _id: data._id,
+          text: data.text || "",
+          createdAt: data.createdAt.toDate(),
+          user: data.user,
+          image: data.image || null,
+          location: data.location || null,
+        });
+      });
+  
+      this.setState({
+        messages,
+      });
+    };
+
+  /**
+   * adds the message object to firestore, fired by onSend function
+   * @function addMessage
+   * @param {string} _id
+   * @param {string} text
+   * @param {number} created.At
+   * @param {object} user
+   * @param {string} user._id
+   * @param {string} image
+   * @param {object} location
+   * @param {number} location.longitude
+   * @param {number} location.latitude
+   */
+   addMessage = () => {
+    const message = this.state.messages[0];
+    this.referenceChatMessages.add({
+      _id: message._id,
+      text: message.text || "",
+      createdAt: message.createdAt,
+      user: message.user,
+      image: message.image || null,
+      location: message.location || null,
+    });
+  };
+  //define title in navigation bar
+  static navigationOptions = ({ navigation }) => {
+    return {
+      title: `${navigation.state.params.userName}'s Chat`,
+    };
+  };
+
+
+  onSend(messages = []) {
+    this.setState(
+      (previousState) => ({
+        messages: GiftedChat.append(previousState.messages, messages),
+      }),
+      () => {
+        this.addMessage();
+
+        this.saveMessages();
+      }
+    );
+  }
+
+
+  renderBubble(props) {
+    return (
+      &lt;Bubble
+        {...props}
+        wrapperStyle={{
+          right: {
+
+            backgroundColor: "#576775",
+
+          },
+        }}
+      />
+    );
+  }
+
+
+  renderInputToolbar(props) {
+    if (this.state.isConnected == false) {
+    } else {
+      return (
+        &lt;InputToolbar
+          {...props}
+        />
+      );
+    }
+  }
+
+   /**
+   * displays the communication features
+   * @function renderCustomActions
+   */
+    renderCustomActions = (props) => &lt;CustomActions {...props} />;
+
+    //custom map view
+    renderCustomView(props) {
+      const { currentMessage } = props;
+      if (currentMessage.location) {
+        return (
+          &lt;MapView
+            style={{ width: 150, height: 100, borderRadius: 13, margin: 3 }}
+            region={{
+              latitude: currentMessage.location.latitude,
+              longitude: currentMessage.location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }}
+          />
+        );
+      }
+      return null;
+    }
+
+  render() {
+    let name = this.props.route.params.name;
+    let color = this.props.route.params.color;
+    this.props.navigation.setOptions({ title: name });
+
+    return (
+      &lt;View
+        style={{
+          flex: 1,
+          backgroundColor: color,
+        }}
+      >
+        &lt;GiftedChat
+          renderBubble={this.renderBubble.bind(this)}
+          renderInputToolbar={this.renderInputToolbar.bind(this)}
+          messages={this.state.messages}
+          renderActions={this.renderCustomActions}
+          renderCustomView={this.renderCustomView}
+          onSend={(messages) => this.onSend(messages)}
+          user={this.state.user}
+
+        />
+        {Platform.OS === "android" ? (
+          &lt;KeyboardAvoidingView behavior="height" />
+        ) : null}
+      &lt;/View>
+    );
+  }
+
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#addMessage">addMessage</a></li><li><a href="global.html#onCollectionUpdate">onCollectionUpdate</a></li><li><a href="global.html#renderCustomActions">renderCustomActions</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.7</a> on Sun Jul 11 2021 19:53:24 GMT-0400 (Eastern Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
